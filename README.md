@@ -300,3 +300,13 @@ export async function verifyRdmoCoscineExport(exportData, sharedSecret) {
   return claims;
 }
 ```
+
+Acknowledgements
+-----
+This plugin has been developed through the [DMP4NFDI](https://dmp.services.base4nfdi.de/) project, 
+as an Incubator with [Coscine](https://about.coscine.de/en/) for the RDMO client of the [NFDI4ING](https://www.nfdi4ing.de/) consortium.
+
+DMP4NFDI is a Basic Service of Base4NFDI, funded by the German Research Foundation (DFG)
+under project [521453681](https://gepris.dfg.de/gepris/projekt/521453681). NFDI4ING is funded by the DFG under project [442146713](https://gepris.dfg.de/gepris/projekt/442146713). 
+Both projects are part of the German National Research Data Infrastructure (NFDI).
+
