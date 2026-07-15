@@ -25,7 +25,7 @@ class CoscineJSONExport(AnswersExportMixin, Export):
     default_jwt_algorithm = "HS256"
     allowed_jwt_algorithms = {"HS256", "HS384", "HS512"}
     min_jwt_secret_length = 32
-    pid_external_id_prefixes = (
+    pid_base_urls = (
         "https://orcid.org/",
         "https://ror.org/",
     )
@@ -61,14 +61,28 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         return jwt.encode(claims, secret, algorithm=algorithm)
 
     @classmethod
-    def get_pid_external_ids(cls, values):
-        if values is None:
-            return []
+    def build_pid_url(cls, external_id, value):
+        external_id = str(external_id).strip()
+        value = str(value)
 
+        if not external_id:
+            return None
+
+        for base_url in cls.pid_base_urls:
+            if base_url in value:
+                if external_id.startswith(base_url):
+                    return external_id
+                return f"{base_url}{external_id.removeprefix(base_url)}"
+
+    @classmethod
+    def get_pid_external_ids(cls, values):
         external_ids = []
-        for value in values:
-            external_id = str(value.get("external_id", "")).strip()
-            if external_id.startswith(cls.pid_external_id_prefixes):
+        for value in values or []:
+            external_id = cls.build_pid_url(
+                value.get("external_id", ""),
+                value.get("value_and_unit", ""),
+            )
+            if external_id:
                 external_ids.append(external_id)
 
         return list(dict.fromkeys(external_ids))
@@ -82,9 +96,12 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         }
 
     def build_data_items(self, question, labels, values):
+        formatted_value = self.stringify_values(values)
+        if not any(base_url in formatted_value for base_url in self.pid_base_urls):
+            return [self.build_data_item_with_value(question, labels, formatted_value)]
+
         pid_external_ids = self.get_pid_external_ids(values)
         if not pid_external_ids:
-            formatted_value = self.stringify_values(values)
             return [self.build_data_item_with_value(question, labels, formatted_value)]
 
         return [
