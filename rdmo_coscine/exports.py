@@ -1,6 +1,5 @@
 import hashlib
 import json
-import re
 import time
 
 from django.conf import settings
@@ -26,9 +25,10 @@ class CoscineJSONExport(AnswersExportMixin, Export):
     default_jwt_algorithm = "HS256"
     allowed_jwt_algorithms = {"HS256", "HS384", "HS512"}
     min_jwt_secret_length = 32
-    project_partner_name_attribute_uri = "https://rdmorganiser.github.io/terms/domain/project/partner/name"
-    ror_href_pattern = re.compile(r"""href=["'](https://ror\.org/[0-9a-z]{9})["']""", re.IGNORECASE)
-    ror_url_pattern = re.compile(r"https://ror\.org/[0-9a-z]{9}", re.IGNORECASE)
+    pid_external_id_prefixes = (
+        "https://orcid.org/",
+        "https://ror.org/",
+    )
 
     @staticmethod
     def canonicalize_payload(payload):
@@ -61,13 +61,17 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         return jwt.encode(claims, secret, algorithm=algorithm)
 
     @classmethod
-    def extract_ror_urls(cls, value):
-        value = str(value)
-        urls = [
-            *cls.ror_href_pattern.findall(value),
-            *cls.ror_url_pattern.findall(value),
-        ]
-        return list(dict.fromkeys(urls))
+    def get_pid_external_ids(cls, values):
+        if values is None:
+            return []
+
+        external_ids = []
+        for value in values:
+            external_id = str(value.get("external_id", "")).strip()
+            if external_id.startswith(cls.pid_external_id_prefixes):
+                external_ids.append(external_id)
+
+        return list(dict.fromkeys(external_ids))
 
     def build_data_item_with_value(self, question, labels, value):
         return {
@@ -78,18 +82,14 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         }
 
     def build_data_items(self, question, labels, values):
-        formatted_value = self.stringify_values(values)
-
-        if question["attribute"] != self.project_partner_name_attribute_uri:
-            return [self.build_data_item_with_value(question, labels, formatted_value)]
-
-        ror_urls = self.extract_ror_urls(formatted_value)
-        if not ror_urls:
+        pid_external_ids = self.get_pid_external_ids(values)
+        if not pid_external_ids:
+            formatted_value = self.stringify_values(values)
             return [self.build_data_item_with_value(question, labels, formatted_value)]
 
         return [
-            self.build_data_item_with_value(question, labels, ror_url)
-            for ror_url in ror_urls
+            self.build_data_item_with_value(question, labels, external_id)
+            for external_id in pid_external_ids
         ]
 
     def get_data(self):
