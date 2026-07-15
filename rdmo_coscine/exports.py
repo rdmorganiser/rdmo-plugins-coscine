@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import time
 
 from django.conf import settings
@@ -25,6 +26,9 @@ class CoscineJSONExport(AnswersExportMixin, Export):
     default_jwt_algorithm = "HS256"
     allowed_jwt_algorithms = {"HS256", "HS384", "HS512"}
     min_jwt_secret_length = 32
+    project_partner_name_attribute_uri = "https://rdmorganiser.github.io/terms/domain/project/partner/name"
+    ror_href_pattern = re.compile(r"""href=["'](https://ror\.org/[0-9a-z]{9})["']""", re.IGNORECASE)
+    ror_url_pattern = re.compile(r"https://ror\.org/[0-9a-z]{9}", re.IGNORECASE)
 
     @staticmethod
     def canonicalize_payload(payload):
@@ -56,13 +60,37 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         claims = cls.build_jwt_claims(payload, issued_at=issued_at, issuer=issuer)
         return jwt.encode(claims, secret, algorithm=algorithm)
 
-    def build_data_item(self, question, labels, values):
+    @classmethod
+    def extract_ror_urls(cls, value):
+        value = str(value)
+        urls = [
+            *cls.ror_href_pattern.findall(value),
+            *cls.ror_url_pattern.findall(value),
+        ]
+        return list(dict.fromkeys(urls))
+
+    def build_data_item_with_value(self, question, labels, value):
         return {
             "attribute_uri": question["attribute"],
             "question": self.stringify(question["text"]),
             "set": " ".join(labels),
-            "values": self.stringify_values(values),
+            "values": value,
         }
+
+    def build_data_items(self, question, labels, values):
+        formatted_value = self.stringify_values(values)
+
+        if question["attribute"] != self.project_partner_name_attribute_uri:
+            return [self.build_data_item_with_value(question, labels, formatted_value)]
+
+        ror_urls = self.extract_ror_urls(formatted_value)
+        if not ror_urls:
+            return [self.build_data_item_with_value(question, labels, formatted_value)]
+
+        return [
+            self.build_data_item_with_value(question, labels, ror_url)
+            for ror_url in ror_urls
+        ]
 
     def get_data(self):
         self.project.catalog.prefetch_elements()
@@ -102,7 +130,7 @@ class CoscineJSONExport(AnswersExportMixin, Export):
                     )
 
                     if result:
-                        data.append(self.build_data_item(question, labels, values))
+                        data.extend(self.build_data_items(question, labels, values))
 
         return data
 
