@@ -1,8 +1,11 @@
 import hashlib
 import json
+import re
 import time
+from functools import lru_cache
 from typing import Any
-from urllib.parse import urlparse
+from importlib.resources import files
+from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -34,6 +37,10 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         'https://www.dfg.de/',
     )
     http_url_schemes = {'http', 'https'}
+    current_dfg_review_board_path_pattern = re.compile(
+        r'^/de/ueber-uns/gremien/fachkollegien/fachsystematik/'
+        r'[^/]+-(?P<section>\d+)-(?P<board>\d{2})/?$'
+    )
 
     @staticmethod
     def canonicalize_payload(payload: dict[str, Any]) -> str:
@@ -85,6 +92,13 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         if not external_id:
             return None
 
+        # Convert current DFG review-board URLs to the legacy URLs expected
+        # by Coscine. This must happen before is_supported_pid_url(), because
+        # current DFG URLs are themselves valid supported URLs.
+        coscine_dfg_url = cls.get_coscine_dfg_review_board_url(external_id)
+        if coscine_dfg_url:
+            return coscine_dfg_url
+
         if cls.is_supported_pid_url(external_id):
             return external_id
 
@@ -113,6 +127,64 @@ class CoscineJSONExport(AnswersExportMixin, Export):
                 external_ids.append(external_id)
 
         return list(dict.fromkeys(external_ids))
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def get_coscine_dfg_review_board_urls() -> dict[str, str]:
+        resource = (
+            files('rdmo_coscine')
+            .joinpath('data')
+            .joinpath('coscine-dfg-disciplines-review-boards.json')
+        )
+
+        with resource.open(encoding='utf-8') as stream:
+            payload = json.load(stream)
+
+        review_board_urls = {}
+
+        for entry in payload['data']:
+            legacy_url = entry.get('uri')
+            if not legacy_url:
+                continue
+
+            notation = parse_qs(urlparse(legacy_url).query).get('id', [None])[0]
+            if notation:
+                review_board_urls[notation] = legacy_url
+
+        return review_board_urls
+
+    @classmethod
+    def get_dfg_review_board_notation(cls, value: Any) -> str | None:
+        """Extract a notation such as ``2.22`` from a current DFG URL."""
+        if not value:
+            return None
+
+        parsed_url = urlparse(str(value).strip())
+
+        if (
+            parsed_url.scheme != 'https'
+            or parsed_url.hostname not in {'dfg.de', 'www.dfg.de'}
+        ):
+            return None
+
+        match = cls.current_dfg_review_board_path_pattern.fullmatch(
+            parsed_url.path
+        )
+        if match is None:
+            return None
+
+        return f"{match['section']}.{match['board']}"
+
+    @classmethod
+    def get_coscine_dfg_review_board_url(
+        cls,
+        external_id: Any,
+    ) -> str | None:
+        notation = cls.get_dfg_review_board_notation(external_id)
+        if notation is None:
+            return None
+
+        return cls.get_coscine_dfg_review_board_urls().get(notation)
 
     def build_data_item_with_value(
         self,

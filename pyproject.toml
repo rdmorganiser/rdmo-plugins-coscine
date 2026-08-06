@@ -29,8 +29,9 @@ classifiers = [
     'Programming Language :: Python :: 3.14',
 ]
 dependencies = [
-    "requests>=2.31",
-    "dpath>=2.1"
+    "requests>=2.34",
+    "dpath>=2.2",
+    "rdmo-plugins-dfg",
 ]
 dynamic = ["version"]
 
