@@ -131,6 +131,9 @@ class CoscineJSONExport(AnswersExportMixin, Export):
     @staticmethod
     @lru_cache(maxsize=1)
     def get_coscine_dfg_review_board_urls() -> dict[str, str]:
+        # Coscine currently identifies DFG review boards using legacy DFG URLs
+        # returned by its /api/v2/disciplines endpoint. Map current DFG URLs to
+        # those identifiers for import compatibility.
         resource = (
             files('rdmo_coscine')
             .joinpath('data')
