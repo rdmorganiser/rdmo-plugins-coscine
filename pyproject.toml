@@ -31,7 +31,6 @@ classifiers = [
 dependencies = [
     "requests>=2.34",
     "dpath>=2.2",
-    "rdmo-plugins-dfg",
 ]
 dynamic = ["version"]
 
