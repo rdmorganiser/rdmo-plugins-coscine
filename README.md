@@ -2,7 +2,7 @@
 
 This project export plugin provides a signed JSON export intended for importing RDMO project metadata into [Coscine](https://www.coscine.de/).
 
-The export contains the RDMO project metadata together with a signed JWT. The signature allows Coscine to verify 
+The export contains the RDMO project metadata together with a signed JWT. The signature allows Coscine to verify
 that the export was signed using the configured shared secret and that the exported data has not been modified.
 
 ## Setup
@@ -33,7 +33,7 @@ COSCINE_EXPORTS = {
 }
 ```
 
-The `jwt_secret` must be the same secret that the Coscine importing service uses to verify the export. Use a long random value and keep it private. By default, the export is signed using the `HS256` HMAC algorithm. 
+The `jwt_secret` must be the same secret that the Coscine importing service uses to verify the export. Use a long random value and keep it private. By default, the export is signed using the `HS256` HMAC algorithm.
 
 ## Further information
 
@@ -87,9 +87,14 @@ The exported JSON includes a signed JWT containing a SHA-256 hash of the unsigne
 
 Technical details about the payload format, JWT claims, canonicalization, verification implementations, and troubleshooting are documented separately in [docs/verification.md](docs/verification.md).
 
+## Development and testing
+
+The pytest suite tests identifier conversion and signing, and exercises the export endpoint inside RDMO using pytest-django.
+See [docs/testing.md](docs/testing.md) for local setup, installed-wheel verification, and the boundaries for sharing the test infrastructure later.
+
 ## Acknowledgements
 
-This plugin has been developed through the [DMP4NFDI](https://dmp.services.base4nfdi.de/) project, 
+This plugin has been developed through the [DMP4NFDI](https://dmp.services.base4nfdi.de/) project,
 as an Incubator with [Coscine](https://about.coscine.de/en/) for the RDMO client of the [NFDI4ING](https://www.nfdi4ing.de/) consortium.
 
 DMP4NFDI is a Basic Service of Base4NFDI, funded by the German Research Foundation (DFG) under project [521453681](https://gepris.dfg.de/gepris/projekt/521453681). NFDI4ING is funded by the DFG under project [442146713](https://gepris.dfg.de/gepris/projekt/442146713).

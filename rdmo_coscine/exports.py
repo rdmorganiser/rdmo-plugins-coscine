@@ -3,8 +3,8 @@ import json
 import re
 import time
 from functools import lru_cache
-from typing import Any
 from importlib.resources import files
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
@@ -134,11 +134,7 @@ class CoscineJSONExport(AnswersExportMixin, Export):
         # Coscine currently identifies DFG review boards using legacy DFG URLs
         # returned by its /api/v2/disciplines endpoint. Map current DFG URLs to
         # those identifiers for import compatibility.
-        resource = (
-            files('rdmo_coscine')
-            .joinpath('data')
-            .joinpath('coscine-dfg-disciplines-review-boards.json')
-        )
+        resource = files('rdmo_coscine').joinpath('data').joinpath('coscine-dfg-disciplines-review-boards.json')
 
         with resource.open(encoding='utf-8') as stream:
             payload = json.load(stream)
@@ -164,19 +160,14 @@ class CoscineJSONExport(AnswersExportMixin, Export):
 
         parsed_url = urlparse(str(value).strip())
 
-        if (
-            parsed_url.scheme != 'https'
-            or parsed_url.hostname not in {'dfg.de', 'www.dfg.de'}
-        ):
+        if parsed_url.scheme != 'https' or parsed_url.hostname not in {'dfg.de', 'www.dfg.de'}:
             return None
 
-        match = cls.current_dfg_review_board_path_pattern.fullmatch(
-            parsed_url.path
-        )
+        match = cls.current_dfg_review_board_path_pattern.fullmatch(parsed_url.path)
         if match is None:
             return None
 
-        return f"{match['section']}.{match['board']}"
+        return f'{match["section"]}.{match["board"]}'
 
     @classmethod
     def get_coscine_dfg_review_board_url(

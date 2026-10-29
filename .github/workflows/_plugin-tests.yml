@@ -1,0 +1,96 @@
+# Local reusable workflow. Later this file can move to rdmorganiser/.github.
+# Callers provide pyproject.toml with a test extra, tests/, and testing/ support.
+name: Plugin tests
+
+on:
+  workflow_call:
+    inputs:
+      rdmo-version:
+        description: RDMO package version and matching Git tag
+        required: true
+        type: string
+      python-version:
+        default: '3.12'
+        type: string
+      django-settings-module:
+        description: Caller's Django settings module, importable from testing/
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      RDMO_VERSION: ${{ inputs.rdmo-version }}
+      DJANGO_SETTINGS_MODULE: ${{ inputs.django-settings-module }}
+      PYTHONPATH: ${{ github.workspace }}/testing:${{ github.workspace }}/.rdmo-testing/testing
+      PYTHONDONTWRITEBYTECODE: '1'
+
+    steps:
+      - name: Checkout plugin
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout matching RDMO test application
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: rdmorganiser/rdmo
+          ref: ${{ inputs.rdmo-version }}
+          path: .rdmo-testing
+          sparse-checkout: testing
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Build and install plugin wheel and test dependencies
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --outdir "$RUNNER_TEMP/plugin-wheels"
+          wheels=("$RUNNER_TEMP"/plugin-wheels/*.whl)
+          python -m pip install "${wheels[0]}[test]" "rdmo[allauth,openapi]==$RDMO_VERSION"
+          python -m pip check
+          echo "PLUGIN_WHEEL=${wheels[0]}" >> "$GITHUB_ENV"
+
+      - name: Verify installed imports and Django configuration
+        working-directory: ${{ runner.temp }}
+        run: |
+          python - <<'PY'
+          import importlib
+          import os
+          import sys
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          import django
+          from django.core.management import call_command
+
+          django.setup()
+          with ZipFile(os.environ['PLUGIN_WHEEL']) as wheel:
+              packages = {
+                  Path(name).parts[0]
+                  for name in wheel.namelist()
+                  if len(Path(name).parts) == 2 and name.endswith('/__init__.py')
+              }
+          if not packages:
+              raise RuntimeError('Expected a plugin wheel containing a Python package')
+          for name in sorted({'rdmo', *packages}):
+              origin = Path(importlib.import_module(name).__file__).resolve()
+              if not origin.is_relative_to(Path(sys.prefix).resolve()):
+                  raise RuntimeError(f'{name} was imported outside the Python environment: {origin}')
+              print(f'{name}: {origin}')
+          call_command('check')
+          PY
+
+      - name: Run plugin tests against installed wheel
+        working-directory: ${{ runner.temp }}
+        run: pytest -c "$GITHUB_WORKSPACE/pyproject.toml" "$GITHUB_WORKSPACE/tests"

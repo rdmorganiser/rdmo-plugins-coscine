@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: $/.github/workflows/_plugin-tests.yml
+    with:
+      rdmo-version: '2.5.2'
+      python-version: '3.12'
+      django-settings-module: coscine_test_settings

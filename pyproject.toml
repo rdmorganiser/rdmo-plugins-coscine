@@ -29,6 +29,7 @@ classifiers = [
     'Programming Language :: Python :: 3.14',
 ]
 dependencies = [
+    "PyJWT>=2,<3",
     "requests>=2.34",
     "dpath>=2.2",
 ]
@@ -38,6 +39,10 @@ dynamic = ["version"]
 repository = "https://github.com/rdmorganiser/rdmo-plugins-coscine"
 
 [project.optional-dependencies]
+test = [
+    "pytest>=9,<10",
+    "pytest-django>=4.11,<5",
+]
 dev = [
     "build",
     "pre-commit",
@@ -50,6 +55,13 @@ source = "vcs"
 
 [tool.hatch.build.targets.wheel]
 packages = ["rdmo_coscine"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["testing", ".rdmo-testing/testing"]
+DJANGO_SETTINGS_MODULE = "coscine_test_settings"
+django_find_project = false
+addopts = ["--import-mode=importlib", "--strict-config", "--strict-markers", "-ra"]
 
 [tool.ruff]
 line-length = 120

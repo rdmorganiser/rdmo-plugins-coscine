@@ -140,11 +140,7 @@ def canonicalize_payload(payload: dict) -> str:
 
 
 def get_unsigned_payload(export_data: dict) -> dict:
-    return {
-        key: value
-        for key, value in export_data.items()
-        if key != 'jwt'
-    }
+    return {key: value for key, value in export_data.items() if key != 'jwt'}
 
 
 def verify_rdmo_coscine_export(
@@ -164,14 +160,10 @@ def verify_rdmo_coscine_export(
     expected_hash = hashlib.sha256(canonical_payload).hexdigest()
 
     if claims['project_id'] != payload['project_id']:
-        raise ValueError(
-            'JWT project_id does not match payload project_id'
-        )
+        raise ValueError('JWT project_id does not match payload project_id')
 
     if claims['payload_sha256'] != expected_hash:
-        raise ValueError(
-            'JWT payload hash does not match JSON payload'
-        )
+        raise ValueError('JWT payload hash does not match JSON payload')
 
     return claims
 
@@ -185,9 +177,7 @@ def get_shared_secret() -> str:
     raise RuntimeError('SHARED_SECRET is not set')
 
 
-export_data = json.loads(
-    Path('rdmo-coscine-export.json').read_text(encoding='utf-8')
-)
+export_data = json.loads(Path('rdmo-coscine-export.json').read_text(encoding='utf-8'))
 
 claims = verify_rdmo_coscine_export(
     export_data,
@@ -206,10 +196,10 @@ Otherwise Python can consume JSON escape sequences before `json.loads()` sees th
 ```python
 import json
 
-data_text = r'''{
+data_text = r"""{
   "version": "1.0.0",
   "set": "Set \"Dataset 1\""
-}'''
+}"""
 
 export_data = json.loads(data_text)
 ```
@@ -252,9 +242,7 @@ claims = jwt.decode(
 
 payload = get_unsigned_payload(export_data)
 
-expected_hash = hashlib.sha256(
-    canonicalize_payload(payload).encode('utf-8')
-).hexdigest()
+expected_hash = hashlib.sha256(canonicalize_payload(payload).encode('utf-8')).hexdigest()
 
 print(claims['payload_sha256'] == expected_hash)
 ```
